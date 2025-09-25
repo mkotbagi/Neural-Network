@@ -1,7 +1,7 @@
 /**
  * Author: Mihir Kotbagi
  * Date of creation: 9/5/25
- * Date of most recent modification: 9/18/25
+ * Date of most recent modification: 9/23/25
  * Description: The Network class represents an A-B-1 neural network and contains methods for configuring, running, and training * the network. This class is written against the "Minimization of the Single Output Error Function" design document.
  */
 
@@ -33,13 +33,10 @@ public class Network
 
    double maxErrorThreshold; // Maximum acceptable average error across all test cases while training
 
-   int weightPop;    // MANUAL_TWO_TWO_ONE (0) if weights should be populated randomly, RAND (1) if weights should be populated   
-                     // using the preset values
-   double randLow;   // Minimum value for randomization function
-   double randHigh;  // Maxmum value for randomization function
-
-   boolean train; // True if the network should be trained, false if the network should only be run
-
+   int weightPop;        // MANUAL_TWO_TWO_ONE (0) to populate randomly, RAND (1) to populate using the preset values
+   double randLow;       // Minimum value for randomization function
+   double randHigh;      // Maxmum value for randomization function
+   boolean train;        // True if the network should be trained, false if the network should only be run
    boolean printTruth;   // True if the user wants to output the truth table, false otherwise
    boolean printWeights; // True if the user wants to output the weight arrays, false otherwise
 
@@ -74,7 +71,7 @@ public class Network
    void setConfigurationParameters() 
    {
       aNodes = 2;
-      hNodes = 20;
+      hNodes = 1;
       fNodes = 1;
 
       test = "XOR";
@@ -116,7 +113,7 @@ public class Network
             case MANUAL_TWO_TWO_ONE:
                System.out.println("The weights will be populated manually using preset values for a 2-2-1 network.");
                break;
-         }
+         } // switch (weightPop)
          System.out.println("Network is training against " + test + ". \n\nTraining parameters:");
          System.out.println("The maximum number of iterations is " + maxIterations + ".");
          System.out.println("The maximum error threshold is " + maxErrorThreshold + ".");
@@ -145,7 +142,7 @@ public class Network
 
       outputs = new double[numTestCases];
 
-      if (train || printTruth) // The truth table is only needed if the user is training or printing the truth table
+      if (train || printTruth) // The truth table is only needed if the user is training or wants to print it
       {
          truthValues = new double[numTestCases];  
       }
@@ -203,16 +200,12 @@ public class Network
     */
    void randomPopulateWeights() 
    {
-      for (int k = 0; k < aNodes; k++) 
+      for (int j = 0; j < hNodes; j++) 
       {
-         for (int j = 0; j < hNodes; j++) 
+         for (int k = 0; k < aNodes; k++) 
          {
             weightKJ[k][j] = randomize(randLow, randHigh);
          }
-      }
-
-      for (int j = 0; j < hNodes; j++) 
-      {
          weightJ0[j] = randomize(randLow, randHigh);
       }
    } // void randomPopulateWeights()
@@ -312,7 +305,8 @@ public class Network
     */
    void populateInputActivations(int testCase)
    {
-      for (int k = 0; k < aNodes; k++) {
+      for (int k = 0; k < aNodes; k++)
+      {
          a[k] = testCases[testCase][k];
       }
    } // void populateInputActivations(int testCase)
@@ -326,22 +320,24 @@ public class Network
       if (train)
       {
          iterations = 0;
-         averageError = Double.MAX_VALUE; //  the error must start above the threshold, otherwise training will not happen
-
+         averageError = Double.MAX_VALUE; // The error must start above the threshold, otherwise training will not happen
+         
          while (iterations < maxIterations && averageError > maxErrorThreshold) 
          {
             averageError = 0.0;
-
-            for (int testCase = 0; testCase < numTestCases; testCase++) {
+            
+            for (int testCase = 0; testCase < numTestCases; testCase++) 
+            {
                runForTrain(testCase);
                calcGradientDescent(testCase);
                gradientDescent();
                runForTrain(testCase);
-            }
-
+            } // for (int testCase = 0; testCase < numTestCases; testCase++)
+            
             iterations++;
-            averageError /= (double) numTestCases; // averageError is summed over all testcases in the loop through the 
-                                                   //calcGradientDescent(testCase) method, so it must be divided
+            averageError /= (double) numTestCases; // averageError is summed over all testcases in the above loop through the 
+                                                   //calcGradientDescent(testCase) method, so it must be divided by
+                                                   // numTestCases to get the actual average
 
          } // while (iterations < maxIterations && averageError > maxErrorThreshold)
       } // if (train)
@@ -482,9 +478,11 @@ public class Network
          {
             System.out.print("the error threshold was reached.");
          }
+         System.out.println("\nAverage Error: " + averageError);
+         System.out.println("Iterations: " + iterations);
       } // if (train)
 
-      System.out.println("\n\nResults:\n");
+      System.out.println("\nResults:");
       if (printTruth)
       {
          System.out.println("a0  | a1  | Truth | Output");
@@ -494,24 +492,23 @@ public class Network
             System.out.println(testCases[testCase][0] + " | " + testCases[testCase][1] + " |  " + truthValues[testCase]
                   + "  | " + outputs[testCase]);
          }
-      }
+      } // if (printTruth)
       else
       {
          System.out.println("a0  | a1  | Output");
          System.out.println("----|-----|-------");
-         for (int testCase = 0; testCase < numTestCases; testCase++) {
+         for (int testCase = 0; testCase < numTestCases; testCase++) 
+         {
             System.out.println(testCases[testCase][0] + " | " + testCases[testCase][1] + " | " + outputs[testCase]);
          }
       }
-      System.out.println("\nAverage Error: " + averageError);
-      System.out.println("Iterations: " + iterations);
-      
       if (printWeights)
       {
          System.out.println("\nWeights:");
          for (int j = 0; j < hNodes; j++)
          {
-            for (int k = 0; k < aNodes; k++) {
+            for (int k = 0; k < aNodes; k++) 
+            {
                System.out.print("\nw1_" + k + "_" + j + ": " + weightKJ[k][j]);
             }
             System.out.print(" | w2_" + j + "_0: " + weightJ0[j]);
@@ -521,6 +518,10 @@ public class Network
       } // if (printWeights)
    } // void reportResults()
 
+   /**
+    * Creates, configures, runs/trains, and reports the output of the neural network. Modifiable parameters allow the user to 
+    * configure the network's operation and choose between running and training.
+    */
    public static void main(String[] args)
    {
       Network net = new Network();
@@ -530,5 +531,5 @@ public class Network
       net.populateArrays();
       net.runOrTrain();
       net.reportResults();
-   }
+   } // public static void main(String[] args)
 } // public class Network
