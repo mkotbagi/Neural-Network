@@ -1,72 +1,74 @@
 import java.io.*;
+import java.util.*;
+import com.google.gson.*;
 
 /**
  * Author: Mihir Kotbagi
  * Date of creation: 9/5/25
- * Date of most recent modification: 10/9/25
- * Description: The Network class implements an A-B-C neural network written against the "Minimizing the Error Function" 
- * design document.
+ * Date of most recent modification: 10/28/25
+ * Description: The Network class implements an A-B-C neural network that uses backpropagation for training. It is written against
+ * the "Minimizing and Optimizing the Error Function" design document. Configuration parameters are read from a user-selected file
+ * using Google's GSON library for JSON parsing.
  */
-
 public class Network 
 {
 
    final static int MANUAL_TWO_TWO_ONE = 0; // Set weightPop to MANUAL_TWO_TWO_ONE to populate the weight array with 2-2-1 presets
-   final static int RAND = 1; // Set weightPop to RAND to randomly populate the weight array
-   final static int FILE_LOAD = 2; // Set weightPop to FILE_LOAD to populate the weight array from a file
+   final static int RAND = 1;               // Set weightPop to RAND to randomly populate the weight array
+   final static int FILE_LOAD = 2;          // Set weightPop to FILE_LOAD to populate the weight array from a file
 
-   int aNodes; // Number of input activations
-   int hNodes; // Number of hidden activations
-   int fNodes; // Number of output nodes
+   int aNodes;                // Number of input activations
+   int hNodes;                // Number of hidden activations
+   int fNodes;                // Number of output nodes
 
-   double[] a;   // 1D array representing all input activations
-   double[] h;   // 1D array representing all hidden activations
-   double[] F;  // 1D array representing all output activations
+   double[] a;                // 1D array representing all input activations
+   double[] h;                // 1D array representing all hidden activations
+   double[] F;                // 1D array representing all output activations
 
    double[][] weightKJ;
    double[][] weightJI;
 
-   double lambda; // Learning factor
+   double lambda;             // Learning factor
 
-   int numTestCases; // Number of test cases
+   int numTestCases;          // Number of test cases
 
-   double[][] testCases;   // 2D array storing test inputs
-   double[][] truthValues; // 2D array storing truth values for the test cases
+   double[][] testCases;      // 2D array storing test inputs
+   double[][] truthValues;    // 2D array storing truth values for the test cases
 
-   double maxErrorThreshold; // Maximum acceptable average error across all test cases while training
+   String test;               // "AND", "OR", "XOR", or "AND_OR_XOR" depending on what the user wants to run/train against
 
-   int weightPop;         // As described above, weightPop is set to 0, 1, or 2 depending on population method
-   double randLow;        // Minimum value for randomization function
-   double randHigh;       // Maximum value for randomization function
-   String weightLoadPath; // Path to file weights should be loaded from
-   String weightSavePath; // Path to file weights should be saved to
+   double maxErrorThreshold;  // Maximum acceptable average error across all test cases while training
 
-   boolean train;         // True if the network should be trained, false if the network should only be run
-   boolean printTruth;    // True if the user wants to output the truth table, false otherwise
-   boolean printWeights;  // True if the user wants to output the weight arrays, false otherwise
-   boolean saveWeights;   // True if the user wants to save the weights, false otherwise
+   int weightPop;             // As described above, weightPop is set to 0, 1, or 2 depending on population method
+   double randLow;            // Minimum value for randomization function
+   double randHigh;           // Maximum value for randomization function
+   String weightLoadPath;     // Path to file weights should be loaded from
+   String weightSavePath;     // Path to file weights should be saved to
 
-   int maxIterations; // Maximum number of iterations before network quits training
+   String configLoadPath;     // Path to file configuration parameters should be loaded from
+   String testCaseLoadPath;   // Path to file containing test cases (used if loadTests is true)
+   String truthTableLoadPath; // Path to file containig truth table (used if loadTruth is true)
 
-   int iterations;      // Number of iterations used for training
-   double averageError; // Average error from the previous training iteration
+   boolean train;             // True if the network should be trained, false if the network should only be run
+   boolean printTruth;        // True if the user wants to output the truth table, false otherwise
+   boolean printWeights;      // True if the user wants to output the weight arrays, false otherwise
+   boolean saveWeights;       // True if the user wants to save the weights, false otherwise
+   boolean loadTests;         // True if the user wants to load the test cases from a file, false otherwise
+   boolean loadTruth;         // True if the user wants to load the truth table from a file, false otherwise
 
-   double[] Theta_i;
+   int maxIterations;         // Maximum number of iterations before network quits training
+   int weightSaveFreq;        // How many training iterations to wait between saving weights
+
+   int iterations;            // Number of iterations used for training
+   double averageError;       // Average error from the previous training iteration
+
    double[] Theta_j;
-
-   double[] Omega_j;
-   double omega_i;
-
-   double[] Psi_j; 
    double[] psi_i;
-
-   double[][] partialE_wkj;
-   double[][] partialE_wji;
-
-   double[][] delta_wkj; // Weight change values for the weightKJ array (n = 1 layer)
-   double[][] delta_wji; // Weight change values for the weightJ0 array (n = 2 layer)
    
-   double[][] outputs; // Stores outputs for each test case to report to the user (distinct from output layer of activations)
+   double[][] outputs;        // Stores outputs for each test case to report (distinct from output layer of activations)
+
+   long runOrTrainStart;      // Used to time running/training
+   long runOrTrainFinish;     // Used to time running/training
 
 /**
  * Allows the user to set parameters that configure the network and decide between training and running. Also allows the user
@@ -75,28 +77,100 @@ public class Network
    void setConfigurationParameters() 
    {
       aNodes = 2;
-      hNodes = 1;
+      hNodes = 5;
       fNodes = 3;
 
-      train = false;
+      train = true;
 
       numTestCases = 4;
+
+      test = "AND_OR_XOR";
 
       lambda = 0.3;
       maxErrorThreshold = 0.0002;
       maxIterations = 100000;
+      weightSaveFreq = 5000;
 
-      weightPop = FILE_LOAD;
+      weightPop = RAND;
+      weightLoadPath = "weightLoad.bin";
+
       randLow = 0.1;
       randHigh = 1.5;
 
-      printTruth = false;
+      printTruth = true;
       printWeights = false;
-      saveWeights = false;
-      weightSavePath = "weights.bin";
-      weightLoadPath = "weights.bin";
+
+      saveWeights = true;
+      weightSavePath = "weightSave.bin";
+
+      loadTests = true;
+      loadTruth = true;
+
+      testCaseLoadPath = "AND_OR_XOR_test.txt";
+      truthTableLoadPath = "AND_OR_XOR_truth.txt";
    } // void setConfigurationParameters()
 
+/**
+ * Loads configuration parameters from a control file specified by the user
+ */
+   void loadConfigurationParameters() throws FileNotFoundException, IOException
+   {
+      configLoadPath = "control.json";
+      FileReader reader = new FileReader(configLoadPath);
+
+      JsonObject parameters = JsonParser.parseReader(reader).getAsJsonObject();
+
+      aNodes = parameters.get("aNodes").getAsInt();
+      hNodes = parameters.get("hNodes").getAsInt();
+      fNodes = parameters.get("fNodes").getAsInt();
+
+      train = parameters.get("train").getAsBoolean();
+
+      numTestCases = parameters.get("numTestCases").getAsInt();
+
+      test = parameters.get("test").getAsString();
+      testCaseLoadPath = parameters.get("testCasePath").getAsString();
+
+      truthTableLoadPath = parameters.get("truthTablePath").getAsString();
+
+      lambda = parameters.get("lambda").getAsDouble();
+      maxErrorThreshold = parameters.get("maxErrorThreshold").getAsDouble();
+      maxIterations = parameters.get("maxIterations").getAsInt();
+
+      String weightPopName = parameters.get("weightPop").getAsString();
+      switch (weightPopName)
+      {
+         case "MANUAL_TWO_TWO_ONE":
+            weightPop = MANUAL_TWO_TWO_ONE;
+            break;
+         case "RAND":
+            weightPop = RAND;
+            break;
+         case "FILE_LOAD":
+            weightPop = FILE_LOAD;
+            break;
+         default:
+            System.out.println("Invalid population method specified. Populating weights randomly.");
+            weightPop = RAND;
+      } // switch (weightPopName)
+
+      weightLoadPath = parameters.get("weightLoadPath").getAsString();
+
+      randLow = parameters.get("randLow").getAsDouble();
+      randHigh = parameters.get("randHigh").getAsDouble();
+
+      printTruth = parameters.get("printTruth").getAsBoolean();
+      printWeights = parameters.get("printWeights").getAsBoolean();
+      saveWeights = parameters.get("saveWeights").getAsBoolean();
+
+      weightSavePath = parameters.get("weightSavePath").getAsString();
+
+      loadTests = parameters.get("loadTests").getAsBoolean();
+      loadTruth = parameters.get("loadTruth").getAsBoolean();
+
+      weightSaveFreq = parameters.get("weightSaveFreq").getAsInt();
+   } // void loadConfigurationParameters() throws FileNotFoundException, IOException
+   
 /**
  * Prints out all the configuration parameters specified by the user.
  */
@@ -107,27 +181,54 @@ public class Network
       System.out.println("This network has " + aNodes + " input activations, " + hNodes + " hidden activations, and "
             + fNodes + " output activation(s).");
       
+      switch (weightPop) 
+      {
+         case RAND:
+            System.out.println("The weights will be populated randomly, and the range for random weight population is ["
+                  + randLow + ", " + randHigh + "].");
+            break;
+         case MANUAL_TWO_TWO_ONE:
+            System.out.println("The weights will be populated manually using preset values for a 2-2-1 network.");
+            break;
+         case FILE_LOAD:
+            System.out.println("The weights were loaded from " + weightSavePath + ".");
+            break;
+      } // switch (weightPop)
+
       if (train) 
       {
-         switch (weightPop) 
-         {
-            case RAND:
-               System.out.println("The weights will be populated randomly, and the range for random weight population is ["
-                     + randLow + ", " + randHigh + "].");
-               break;
-            case MANUAL_TWO_TWO_ONE:
-               System.out.println("The weights will be populated manually using preset values for a 2-2-1 network.");
-               break;
-         } // switch (weightPop)
-         System.out.println("Network is training against AND, OR, and XOR. \n\nTraining parameters:");
+         System.out.println("Network is training against " + test + ". \n\nTraining parameters:");
          System.out.println("The maximum number of iterations is " + maxIterations + ".");
+         System.out.println("Weights will be saved every " + weightSaveFreq + " iterations.");
          System.out.println("The maximum error threshold is " + maxErrorThreshold + ".");
          System.out.println("The learning factor is " + lambda + ".");
       } // if (train)
       else 
       {
-         System.out.println("Network is running against AND, OR, and XOR.");
+         System.out.println("Network is running against " + test + ".");
       }
+
+      if (loadTests)
+      {
+         System.out.println("The test cases were loaded from " + testCaseLoadPath + ".");
+      }
+      else
+      {
+         System.out.println("The test cases were populated using values defined in the manualPopulateTests() function.");
+      }
+
+      if (train || printTruth)
+      {
+         if (loadTruth)
+         {
+            System.out.println("The truth table was loaded from " + truthTableLoadPath + ".");
+         }
+         else
+         {
+            System.out.println("The truth table was populated using values defined in the manualPopulateTruth() function.");
+         }
+      } // if (train || printTruth)
+
       System.out.println("=====================================================================");
    } // void echoConfigurationParameters()
 
@@ -156,17 +257,7 @@ public class Network
       if (train) 
       {
          Theta_j = new double[hNodes];
-         Theta_i = new double[fNodes];
-         
-         Omega_j = new double[hNodes];
-         Psi_j = new double[hNodes];
          psi_i = new double[fNodes];
-
-         partialE_wkj = new double[aNodes][hNodes];
-         partialE_wji = new double[hNodes][fNodes];
-
-         delta_wkj = new double[aNodes][hNodes];
-         delta_wji = new double[hNodes][fNodes];
       } // if (train)
    } // void allocateMemory()
 
@@ -191,10 +282,24 @@ public class Network
 
       if (train || printTruth)
       {
-         populateTruth();
-      }
+         if (loadTruth)
+         {
+            loadTruth();
+         }
+         else
+         {
+            manualPopulateTruth();
+         }
+      } // if (train || printTruth)
       
-      populateTests();
+      if (loadTests)
+      {
+         loadTests();
+      }
+      else
+      {
+         manualPopulateTests();
+      } // if (loadTests)
    } // void populateArrays() throws FileNotFoundException, IOException
    
 /**
@@ -218,7 +323,8 @@ public class Network
    {
       for (int j = 0; j < hNodes; j++) 
       {
-         for (int k = 0; k < aNodes; k++) {
+         for (int k = 0; k < aNodes; k++) 
+         {
             weightKJ[k][j] = randomize(randLow, randHigh);
          }
       }
@@ -240,18 +346,21 @@ public class Network
       File weightFile = new File(weightLoadPath);
       DataInputStream dataIn = new DataInputStream(new FileInputStream(weightFile));
 
-      int checkA, checkH, checkF; // Used to verify that the weights match the network configuration
-      checkA = dataIn.readInt();
-      checkH = dataIn.readInt();
-      checkF = dataIn.readInt();
-      if (checkA != aNodes || checkH != hNodes || checkF != fNodes)
+      int aNodesW, hNodesW, fNodesW; // Used to verify that the config saved in the weights file matches the user config
+      aNodesW = dataIn.readInt();
+      hNodesW = dataIn.readInt();
+      fNodesW = dataIn.readInt();
+
+      if (aNodesW != aNodes || hNodesW != hNodes || fNodesW != fNodes)
       {
          dataIn.close();
-         throw new IOException("Weights from file don't match network configuration");
-      }
+         System.out.println("Weights from file don't match network configuration, so they couldn't be loaded.");
+         System.out.println("Populating weights randomly instead.");
+         randomPopulateWeights();
+      } // if (aNodesW != aNodes || hNodesW != hNodes || fNodesW != fNodes)
       else
       {
-         for(int j = 0; j < hNodes; j++)
+         for (int j = 0; j < hNodes; j++)
          {
             for (int k = 0; k < aNodes; k++)
             {
@@ -259,15 +368,16 @@ public class Network
             }
          }
       
-         for(int i = 0; i < fNodes; i++)
+         for (int i = 0; i < fNodes; i++)
          {
-            for (int j = 0; j < hNodes; j++) {
+            for (int j = 0; j < hNodes; j++) 
+            {
                weightJI[j][i] = dataIn.readDouble();
             }
          }
          
          dataIn.close();
-      }
+      } // else
    } // void loadWeights() throws FileNotFoundException, IOException
 
 /**
@@ -282,50 +392,95 @@ public class Network
       dataOut.writeInt(hNodes);
       dataOut.writeInt(fNodes);
 
-      for(int j = 0; j < hNodes; j++)
+      for (int j = 0; j < hNodes; j++)
       {
          for (int k = 0; k < aNodes; k++)
          {
             dataOut.writeDouble(weightKJ[k][j]);
          }
-      }
+      } // for (int j = 0; j < hNodes; j++)
       
-      for(int i = 0; i < fNodes; i++)
+      for (int i = 0; i < fNodes; i++)
       {
          for (int j = 0; j < hNodes; j++) 
          {
             dataOut.writeDouble(weightJI[j][i]);
          }
-      }
+      } // for (int i = 0; i < fNodes; i++)
       
       dataOut.close();
    } // void saveWeights() throws FileNotFoundException, IOException
    
 /**
- * Populates the truth table depending on which binary problem the user specifies
+ * Populates the truth table for the test problem specified by the user.
  */
-   void populateTruth() 
+   void manualPopulateTruth() 
    {
-      truthValues[0][0] = 0.0;
-      truthValues[1][0] = 0.0;
-      truthValues[2][0] = 0.0;
-      truthValues[3][0] = 1.0;
+      switch (test) 
+      {
+         case "AND_OR_XOR":
+            truthValues[0][0] = 0.0;
+            truthValues[1][0] = 0.0;
+            truthValues[2][0] = 0.0;
+            truthValues[3][0] = 1.0;
 
-      truthValues[0][1] = 0.0;
-      truthValues[1][1] = 1.0;
-      truthValues[2][1] = 1.0;
-      truthValues[3][1] = 1.0;
+            truthValues[0][1] = 0.0;
+            truthValues[1][1] = 1.0;
+            truthValues[2][1] = 1.0;
+            truthValues[3][1] = 1.0;
 
-      truthValues[0][2] = 0.0;
-      truthValues[1][2] = 1.0;
-      truthValues[2][2] = 1.0;
-      truthValues[3][2] = 0.0;
+            truthValues[0][2] = 0.0;
+            truthValues[1][2] = 1.0;
+            truthValues[2][2] = 1.0;
+            truthValues[3][2] = 0.0;
+            break;
+
+         case "AND":
+            truthValues[0][0] = 0.0;
+            truthValues[1][0] = 0.0;
+            truthValues[2][0] = 0.0;
+            truthValues[3][0] = 1.0;
+            break;
+      
+         case "OR":
+            truthValues[0][0] = 0.0;
+            truthValues[1][0] = 1.0;
+            truthValues[2][0] = 1.0;
+            truthValues[3][0] = 1.0;
+            break;
+
+         case "XOR":
+            truthValues[0][0] = 0.0;
+            truthValues[1][0] = 1.0;
+            truthValues[2][0] = 1.0;
+            truthValues[3][0] = 0.0;
+            break;
+      } // switch (test)
    } // void populateTruth()
+
+/**
+ * Loads the truth table from a user-specified file
+ */   
+   void loadTruth() throws FileNotFoundException, IOException
+   {
+      File truthFile = new File(truthTableLoadPath);
+      Scanner scanner = new Scanner(truthFile);
+
+      for (int testCase = 0; testCase < numTestCases; testCase++)
+      {
+         for (int i = 0; i < fNodes; i++) 
+         {
+            truthValues[testCase][i] = scanner.nextInt();
+         }
+      }
+      
+      scanner.close();
+   } // void loadTruth() throws FileNotFoundException, IOException
 
 /**
  * Populates the standard test cases for binary problems
  */
-   void populateTests() 
+   void manualPopulateTests() 
    {
       testCases[0][0] = 0.0;
       testCases[0][1] = 0.0;
@@ -341,18 +496,37 @@ public class Network
    } // void populateTests()
 
 /**
+ * Loads test cases from a user-specified file
+ */   
+   void loadTests() throws FileNotFoundException, IOException
+   {
+      File testFile = new File(testCaseLoadPath);
+      Scanner scanner = new Scanner(testFile);
+
+      for (int testCase = 0; testCase < numTestCases; testCase++)
+      {
+         for (int k = 0; k < aNodes; k++) 
+         {
+            testCases[testCase][k] = scanner.nextInt();
+         }
+      }
+      
+      scanner.close();
+   } // void loadTests() throws FileNotFoundException, IOException
+
+/**
  * Returns a random double precision floating point number between low and high.
  * Low must be less than or equal to high.
  */
    double randomize(double low, double high) 
    {
       return (high - low) * Math.random() + low;
-   }
+   } // double randomize(double low, double high)
 
 /**
  * Basic linear activation function f(x) = x
  */
-   double oldActivationFunction(double x) 
+   double linear(double x) 
    {
       return x;
    } // double oldActivationFunction(double x)
@@ -360,26 +534,69 @@ public class Network
 /**
  * Derivative of linear activation function f(x) = x; f'(x) = 1
  */
-   double oldActivationFunctionDerivative(double x)
+   double linearDerivative(double x)
    {
       return 1.0;
    } // double oldActivationFunctionDerivative(double x)
 
 /**
- * Sigmoid activation function
+ * Returns the value of the sigmoid function for a given value of x
+ */   
+   double sigmoid(double x)
+   {
+      return 1.0 / (1.0 + Math.exp(-x));
+   } // double sigmoid(double x)
+
+/**
+ * Returns the value of the derivative of the sigmoid function for a given value of x
+ */
+   double sigmoidDerivative(double x)
+   {
+      double fX = sigmoid(x);
+      return fX * (1.0 - fX);
+   } // double sigmoidDerivative(double x)
+
+/**
+ * epsilon(x) is a helper function for the tanh activation function
+ */
+   double epsilon(double x)
+   {
+      return (x < 0) ? 1.0 : -1.0;
+   } // double epsilon(double x)
+
+/**
+ * Returns the value of the hyperbolic tangent function for a given value of x
+ */
+   double tanh(double x)
+   {
+      double epsX = epsilon(x);
+      double e_eps_2X = Math.exp(epsX * 2.0 * x);
+      return epsX * (e_eps_2X - 1.0) / (e_eps_2X + 1.0);
+   } // double tanh(double x)
+
+/**
+ * Returns the value of the derivative of the hyperbolic tangent function for a given value of x
+ */
+   double tanhDerivative(double x)
+   {
+      double fX = tanh(x);
+      return 1 - fX * fX;
+   } // double tanhDerivative(double x)
+
+/**
+ * Returns the value of the activation function
  */
    double activationFunction(double x)
    {
-      return 1.0 / (1.0 + Math.exp(-x));
+      return sigmoid(x);
    } // double activationFunction(double x)
 
 /**
- * Derivative of the sigmoid activation function
+ * Returns the derivative of the activation function
  */
    double activationFunctionDerivative(double x)
    {
-      double fX = activationFunction(x);
-      return fX * (1.0 - fX);
+      return sigmoidDerivative(x);
    } // double activationFunctionDerivative(double x)
 
 /**
@@ -399,6 +616,8 @@ public class Network
  */
    void runOrTrain() throws FileNotFoundException, IOException
    {
+      runOrTrainStart = System.nanoTime();
+
       if (train)
       {
          iterations = 0;
@@ -410,45 +629,50 @@ public class Network
             
             for (int testCase = 0; testCase < numTestCases; testCase++) 
             {
-               runForTrain(testCase);
-               calcGradientDescent(testCase);
-               gradientDescent();
+               populateInputActivations(testCase);
+               averageError += runForTrain(testCase);
+               gradientDescent(testCase);
             } // for (int testCase = 0; testCase < numTestCases; testCase++)
             
             iterations++;
+
+            if (saveWeights && iterations % weightSaveFreq == 0)
+            {
+               saveWeights();
+            }
 /**
- * averageError is summed over all testcases in the above loop through the calcGradientDescent(testCase) method, so it must be 
- * divided by numTestCases to obtain the actual average
+ * averageError is summed over all testcases in the above loop, so it must be divided by numTestCases to obtain the actual average
+ * It is also divided by 2 here to optimize error calculation, as explained in the design documents
  */ 
-            averageError /= (double) numTestCases;
+            averageError /= (double) (2 * numTestCases);
          } // while (iterations < maxIterations && averageError > maxErrorThreshold)
 
          for (int testCase = 0; testCase < numTestCases; testCase++)
          {
+            populateInputActivations(testCase);
             run(testCase);
+
             for (int i = 0; i < fNodes; i++)
             {
                outputs[testCase][i] = F[i];
             }
-         }
-
-         if(saveWeights)
-         {
-            saveWeights();
-         }
-
+         } // for (int testCase = 0; testCase < numTestCases; testCase++)
       } // if (train)
       else
       {
          for (int testCase = 0; testCase < numTestCases; testCase++)
          {
+            populateInputActivations(testCase);
             run(testCase);
+            
             for (int i = 0; i < fNodes; i++)
             {
                outputs[testCase][i] = F[i];
             }
-         }
-      }
+         } // for (int testCase = 0; testCase < numTestCases; testCase++)
+      } // else
+
+      runOrTrainFinish = System.nanoTime();
    } // void runOrTrain()
    
 /**
@@ -457,8 +681,6 @@ public class Network
  */
    void run(int testCase)
    {
-      populateInputActivations(testCase);
-
       double Theta;
 
       for (int j = 0; j < hNodes; j++)
@@ -476,21 +698,21 @@ public class Network
       for (int i = 0; i < fNodes; i++)
       {
          Theta = 0.0;
-         for(int j = 0; j < hNodes; j++)
+
+         for (int j = 0; j < hNodes; j++)
          {
             Theta += h[j] * weightJI[j][i];
          }
+
          F[i] = activationFunction(Theta);
-      } // for(int i = 0; i < fNodes; i++)
+      } // for (int i = 0; i < fNodes; i++)
    } // void run(int testCase)
 
 /**
  * Runs the network for a particular test case and stores all dot products.
  */
-   void runForTrain(int testCase)
+   double runForTrain(int testCase)
    {
-      populateInputActivations(testCase);
-
       for (int j = 0; j < hNodes; j++)
       {
          Theta_j[j] = 0.0;
@@ -503,68 +725,50 @@ public class Network
          h[j] = activationFunction(Theta_j[j]);
       } // for (int j = 0; j < hNodes; j++)
       
+      Double error = 0.0;
+
       for (int i = 0; i < fNodes; i++)
       {
-         Theta_i[i] = 0.0;
+         Double Theta_i = 0.0;
+         
          for (int j = 0; j < hNodes; j++)
          {
-            Theta_i[i] += h[j] * weightJI[j][i];
+            Theta_i += h[j] * weightJI[j][i];
          }
-         F[i] = activationFunction(Theta_i[i]);
-      } // for(int i = 0; i < fNodes; i++)
+         
+         F[i] = activationFunction(Theta_i);
+
+         double omega_i = truthValues[testCase][i] - F[i];
+         psi_i[i] = omega_i * activationFunctionDerivative(Theta_i);
+         error += omega_i * omega_i;
+      } // for (int i = 0; i < fNodes; i++)
+
+      return error;
    } // void runForTrain(int testCase)
 
 /**
- * Populates the delta weight arrays, which are used to update the weights while training.
+ * Updates the weights after calculating how much they should change
  */
-   void calcGradientDescent(int testCase)
+   void gradientDescent(int testCase)
    {
-      for (int i = 0; i < fNodes; i++)
-      {
-         omega_i = truthValues[testCase][i] - F[i];
-         psi_i[i] = omega_i * activationFunctionDerivative(Theta_i[i]);
-         averageError += omega_i * omega_i / 2.0;
-      }
-
       for (int j = 0; j < hNodes; j++)
       {
-         Omega_j[j] = 0.0;
+         double Omega_j = 0.0;
 
          for (int i = 0; i < fNodes; i++)
          {
-            Omega_j[j] += psi_i[i] * weightJI[j][i];
-            partialE_wji[j][i] = -h[j] * psi_i[i];
-            delta_wji[j][i] = -lambda * partialE_wji[j][i];
+            Omega_j += psi_i[i] * weightJI[j][i];
+            weightJI[j][i] += lambda * h[j] * psi_i[i];
          }
 
-         Psi_j[j] = Omega_j[j] * activationFunctionDerivative(Theta_j[j]);
+         double Psi_j = Omega_j * activationFunctionDerivative(Theta_j[j]);
 
          for (int k = 0; k < aNodes; k++)
          {
-            partialE_wkj[k][j] = -a[k] * Psi_j[j];
-            delta_wkj[k][j] = -lambda * partialE_wkj[k][j];
+            weightKJ[k][j] += lambda * a[k] * Psi_j;
          }
       } // for (int j = 0; j < hNodes; j++)
    } // void calcGradientDescent(int testCase)
-   
-/**
- * Updates all weights using the calculated weight change arrays.
- */
-   void gradientDescent()
-   {
-      for (int j = 0; j < hNodes; j++) 
-      {
-         for (int k = 0; k < aNodes; k++) 
-         {
-            weightKJ[k][j] += delta_wkj[k][j];
-         }
-
-         for(int i = 0; i < fNodes; i++)
-         {
-            weightJI[j][i] += delta_wji[j][i];
-         }
-      } // for (int j = 0; j < hNodes; j++)
-   } // void gradientDescent()
    
 /**
  * Reports the results for running or training, and depending on configuration parameters, outputs test cases and weights as well.
@@ -572,6 +776,8 @@ public class Network
    void reportResults()
    {
       System.out.println("Network attempted to " + (train ? "train" : "run") + " on " + numTestCases + " test cases.");
+      System.out.println((train ? "Training" : "Running") + " took " + (runOrTrainFinish - runOrTrainStart) / 1e9 + " seconds.");
+
       if (train)
       {
          System.out.print("Training exited because ");
@@ -588,10 +794,11 @@ public class Network
          {
             System.out.print("the error threshold was reached.");
          }
+
          System.out.println("\nAverage Error: " + averageError);
          System.out.println("Iterations: " + iterations);
 
-         if(saveWeights)
+         if (saveWeights)
          {
             System.out.println("Weights saved to " + weightSavePath);
          }
@@ -611,7 +818,7 @@ public class Network
             System.out.print("----|");
          }
 
-         System.out.println("-------------------------------------------------------");
+         System.out.println("--------------|----------------------------------------");
 
          for (int testCase = 0; testCase < numTestCases; testCase++)
          {
@@ -619,14 +826,17 @@ public class Network
             {
                System.out.print(testCases[testCase][k] + " |");
             }
+
             for (int i = 0; i < fNodes; i++)
             {
                System.out.print(truthValues[testCase][i] + " |");
             }
-            for(int i = 0; i < fNodes; i++)
+
+            for (int i = 0; i < fNodes; i++)
             {
-               System.out.print(String.format("%,.10f", outputs[testCase][i]) + " |");
+               System.out.print(String.format("%,.17f", outputs[testCase][i]) + " |");
             }
+
             System.out.println();
          } // for (int testCase = 0; testCase < numTestCases; testCase++)
       } // if (printTruth)
@@ -636,6 +846,7 @@ public class Network
          {
             System.out.print("a" + k + "  |");
          }
+
          System.out.println("               Outputs");
 
          for (int k = 0; k < aNodes; k++)
@@ -651,13 +862,15 @@ public class Network
             {
                System.out.print(testCases[testCase][k] + " |");
             }
-            for(int i = 0; i < fNodes; i++)
+
+            for (int i = 0; i < fNodes; i++)
             {
-               System.out.print(String.format("%,.10f", outputs[testCase][i]) + " |");
+               System.out.print(String.format("%,.17f", outputs[testCase][i]) + " |");
             }
             System.out.println();
          } // for (int testCase = 0; testCase < numTestCases; testCase++)
       } // else
+
       if (printWeights)
       {
          System.out.println("\nWeights:");
@@ -667,12 +880,14 @@ public class Network
             {
                System.out.println("w1_" + k + "_" + j + ": " + weightKJ[k][j]);
             }
+
             for (int i = 0; i < fNodes; i++)
             {
                System.out.println("w2_" + j + "_" + i + ": " + Double.toString(weightJI[j][i]));
             }
             System.out.println("\n=================================================");
          } // for (int j = 0; j < hNodes; j++)
+
          System.out.println();
       } // if (printWeights)
    } // void reportResults()
@@ -684,11 +899,23 @@ public class Network
    public static void main(String[] args) throws FileNotFoundException, IOException
    {
       Network net = new Network();
-      net.setConfigurationParameters();
-      net.echoConfigurationParameters();
-      net.allocateMemory();
-      net.populateArrays();
-      net.runOrTrain();
-      net.reportResults();
+      try 
+      {
+         net.loadConfigurationParameters();
+         net.echoConfigurationParameters();
+         net.allocateMemory();
+         net.populateArrays();
+         net.runOrTrain();
+         if (net.saveWeights) 
+         {
+            net.saveWeights();
+         }
+         net.reportResults();
+      } // try
+      catch (Exception e) 
+      {
+         System.out.println(e.getMessage());
+         System.out.println("Because of this exception, the network wasn't able to " + (net.train ? "train" : "run") + ".");
+      } // catch (Exception e)
    } // public static void main(String[] args) throws FileNotFoundException, IOException
 } // public class Network
