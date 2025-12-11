@@ -1,16 +1,13 @@
 {
-   "activationLayers": "4",
-   "layerSizes": [
-      "2",
-      "1",
-      "1",
-      "3"
-   ],
+   "aNodes": "2",
+   "h1Nodes": "100",
+   "h2Nodes": "5",
+   "fNodes": "3",
    "train": "true",
-   "numTestCases": "4",
+   "numTestCases": "12",
    "test": "AND_OR_XOR",
-   "testCasePath": "standard_bool_test.txt",
-   "truthTablePath": "AND_OR_XOR_truth.txt",
+   "testCasePath": "AND_OR_XOR_fuzzy_train_test.txt.txt",
+   "truthTablePath": "AND_OR_XOR_fuzzy_train_truth.txt.txt",
    "loadTests": "true",
    "loadTruth": "true",
    "lambda": "0.3",
@@ -18,12 +15,11 @@
    "maxIterations": "100000",
    "weightPop": "RAND",
    "weightLoadPath": "weightSave.bin",
-   "randLow": "0.1",
+   "randLow": "-1.5",
    "randHigh": "1.5",
    "printTruth": "true",
    "printWeights": "false",
    "saveWeights": "true",
    "weightSavePath": "weightSave.bin",
-   "weightSaveFreq": "5000",
-   "keepAliveFreq": "0"
+   "weightSaveFreq": "5000"
 }
