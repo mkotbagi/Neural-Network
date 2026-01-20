@@ -1,0 +1,30 @@
+{
+   "activationLayers": "4",
+   "layerSizes": [
+      "225000",
+      "25",
+      "25",
+      "5"
+   ],
+   "train": "false",
+   "numTestCases": "5",
+   "test": "images",
+   "testCasePath": "image_verify_tests.bin",
+   "truthTablePath": "image_testing_truth.txt",
+   "loadTests": "true",
+   "loadTruth": "true",
+   "binaryTests": "true",
+   "lambda": "0.6",
+   "maxErrorThreshold": "0.0002",
+   "maxIterations": "100000",
+   "weightPop": "FILE_LOAD",
+   "weightLoadPath": "weightSave_25_25_5.bin",
+   "randLow": "-0.1",
+   "randHigh": "0.1",
+   "printTruth": "true",
+   "printWeights": "false",
+   "saveWeights": "false",
+   "weightSavePath": "weightSave.bin",
+   "weightSaveFreq": "50",
+   "keepAliveFreq": "1"
+}

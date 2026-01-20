@@ -50,9 +50,9 @@ public class Network
    int layers;                // Number of connectivity layers in the network   
    int activationLayers;      // Number of activation layers in the network, one more than LAYERS
    
-   int A_INDEX = 0;           // n-index of the input activation layer
-   int H1_INDEX = 1;          // n-index of the first hidden activation layer
-   int F_INDEX;               // n-index of the output activation layer
+   int A_INDEX = 0;           // n-index of the input activation layer, always 0
+   int H1_INDEX = 1;          // n-index of the first hidden activation layer, always 1
+   int f_index;               // n-index of the output activation layer, dependent on network configuration
    
    int[] layerSizes;          // Configuration array that stores number of nodes in each layer (input, hidden 1, hidden 2, output)
 
@@ -86,6 +86,7 @@ public class Network
    boolean printWeights;      // True if the user wants to output the weight arrays, false otherwise
    boolean saveWeights;       // True if the user wants to save the weights, false otherwise
    boolean loadTests;         // True if the user wants to load the test cases from a file, false otherwise
+   boolean binaryTests;       // True if the user wants to use binary files for test cases, falst otherwise
    boolean loadTruth;         // True if the user wants to load the truth table from a file, false otherwise
 
    int maxIterations;         // Maximum number of iterations before network quits training
@@ -116,13 +117,13 @@ public class Network
 
       A_INDEX = 0;
       H1_INDEX = 1;
-      F_INDEX = 3;
+      f_index = 3;
       int H2_INDEX = 2;
 
       layerSizes[A_INDEX] = 2;
       layerSizes[H1_INDEX] = 5;
       layerSizes[H2_INDEX] = 5;
-      layerSizes[F_INDEX] = 3;
+      layerSizes[f_index] = 3;
 
       train = true;
 
@@ -151,6 +152,7 @@ public class Network
       loadTruth = true;
 
       testCaseLoadPath = "AND_OR_XOR_test.txt";
+      binaryTests = true;
       truthTableLoadPath = "AND_OR_XOR_truth.txt";
    } // void setConfigurationParameters()
 
@@ -165,7 +167,7 @@ public class Network
 
       activationLayers = parameters.get("activationLayers").getAsInt();
       layers = activationLayers - 1; // Number of connectivity layers is always one less than number of activation layers
-      F_INDEX = layers;              // Output index equals number of connectivity layers
+      f_index = layers;              // Output index equals number of connectivity layers
 
       JsonArray layerSizesJSON = parameters.get("layerSizes").getAsJsonArray();
 
@@ -215,6 +217,7 @@ public class Network
       weightSavePath = parameters.get("weightSavePath").getAsString();
 
       loadTests = parameters.get("loadTests").getAsBoolean();
+      binaryTests = parameters.get("binaryTests").getAsBoolean();
       loadTruth = parameters.get("loadTruth").getAsBoolean();
 
       weightSaveFreq = parameters.get("weightSaveFreq").getAsInt();
@@ -254,7 +257,7 @@ public class Network
                   + randLow + ", " + randHigh + "].");
             break;
          case FILE_LOAD:
-            System.out.println("The weights will be loaded from " + weightSavePath + ".");
+            System.out.println("The weights will be loaded from " + weightLoadPath + ".");
             break;
       } // switch (weightPop)
 
@@ -321,11 +324,11 @@ public class Network
 
       testCases = new double[numTestCases][layerSizes[A_INDEX]];
 
-      outputs = new double[numTestCases][layerSizes[F_INDEX]];
+      outputs = new double[numTestCases][layerSizes[f_index]];
 
       if (train || printTruth) // The truth table is only needed if the user is training or wants to print it
       {
-         truthValues = new double[numTestCases][layerSizes[F_INDEX]];  
+         truthValues = new double[numTestCases][layerSizes[f_index]];  
       }
 
       if (train) 
@@ -519,7 +522,7 @@ public class Network
 
       for (int testCase = 0; testCase < numTestCases; testCase++)
       {
-         for (int i = 0; i < layerSizes[F_INDEX]; i++) 
+         for (int i = 0; i < layerSizes[f_index]; i++) 
          {
             truthValues[testCase][i] = scanner.nextDouble();
          }
@@ -554,15 +557,22 @@ public class Network
       File testFile = new File(testCaseLoadPath);
       Scanner scanner = new Scanner(testFile);
 
+      FileInputStream in = new FileInputStream(testFile);
+      DataInputStream dis = new DataInputStream(in);
+
       for (int testCase = 0; testCase < numTestCases; testCase++)
       {
          for (int k = 0; k < layerSizes[A_INDEX]; k++) 
          {
-            testCases[testCase][k] = scanner.nextDouble();
+            if (binaryTests)
+               testCases[testCase][k] = dis.readDouble();
+            else
+               testCases[testCase][k] = scanner.nextDouble();
          }
       } // for (int testCase = 0; testCase < numTestCases; testCase++)
       
       scanner.close();
+      dis.close();
    } // void loadTests() throws FileNotFoundException, IOException
 
 /**
@@ -700,9 +710,9 @@ public class Network
             populateInputActivations(testCase);
             run(testCase);
 
-            for (int i = 0; i < layerSizes[F_INDEX]; i++)
+            for (int i = 0; i < layerSizes[f_index]; i++)
             {
-               outputs[testCase][i] = a[F_INDEX][i];
+               outputs[testCase][i] = a[f_index][i];
             }
          } // for (int testCase = 0; testCase < numTestCases; testCase++)
       } // if (train)
@@ -713,9 +723,9 @@ public class Network
             populateInputActivations(testCase);
             run(testCase);
             
-            for (int i = 0; i < layerSizes[F_INDEX]; i++)
+            for (int i = 0; i < layerSizes[f_index]; i++)
             {
-               outputs[testCase][i] = a[F_INDEX][i];
+               outputs[testCase][i] = a[f_index][i];
             }
          } // for (int testCase = 0; testCase < numTestCases; testCase++)
       } // else: if (train)
@@ -769,7 +779,7 @@ public class Network
          } // for (int j = 0; j < layerSizes[n]; j++)
       } // for (int n = H1_INDEX; n < activationLayers - 1; n++)
 
-      int n = F_INDEX;
+      int n = f_index;
 
       for (int j = 0; j < layerSizes[n]; j++)
       {
@@ -795,7 +805,7 @@ public class Network
  */
    void gradientDescent(int testCase)
    {
-      for (int n = F_INDEX - 1; n > H1_INDEX; n--) // Loops from the last activation layer to the second activation layer
+      for (int n = f_index - 1; n > H1_INDEX; n--) // Loops from the last activation layer to the second activation layer
       {
          for (int j = 0; j < layerSizes[n]; j++)
          {
@@ -809,7 +819,7 @@ public class Network
 
             psi[n][j] = Omega_j * activationFunctionDerivative(Theta[n][j]);
          } // for (int j = 0; j < layerSizes[n]; j++)
-      } // for (int n = F_INDEX - 1; n > H1_INDEX; n--)
+      } // for (int n = f_index - 1; n > H1_INDEX; n--)
 
       int n = H1_INDEX; // The first activation layer has a special loop and is handled separately
 
@@ -869,6 +879,29 @@ public class Network
       } // if (train)
 
       System.out.println("\nResults:");
+
+      if (test.equalsIgnoreCase("images"))
+      {
+         System.out.println("         Truth          |           Outputs");
+         System.out.println("------------------------|------------------------------");
+
+         for (int testCase = 0; testCase < numTestCases; testCase++)
+         {
+            for (int i = 0; i < layerSizes[f_index]; i++)
+            {
+               System.out.print(truthValues[testCase][i] + " |");
+            }
+
+            for (int i = 0; i < layerSizes[f_index]; i++)
+            {
+               System.out.print(String.format("%,.2f", outputs[testCase][i]) + " |");
+            }
+
+            System.out.println();
+         } // for (int testCase = 0; testCase < numTestCases; testCase++)
+         return;
+      }
+
       if (printTruth)
       {
          for (int k = 0; k < layerSizes[A_INDEX]; k++)
@@ -896,12 +929,12 @@ public class Network
                System.out.print(String.format("%.2f", testCases[testCase][k]) + "|");
             } // for (int k = 0; k < layerSizes[A_INDEX]; k++)
 
-            for (int i = 0; i < layerSizes[F_INDEX]; i++)
+            for (int i = 0; i < layerSizes[f_index]; i++)
             {
                System.out.print(truthValues[testCase][i] + " |");
             }
 
-            for (int i = 0; i < layerSizes[F_INDEX]; i++)
+            for (int i = 0; i < layerSizes[f_index]; i++)
             {
                System.out.print(String.format("%,.4f", outputs[testCase][i]) + " |");
             }
@@ -937,7 +970,7 @@ public class Network
                System.out.print(String.format("%.2f", testCases[testCase][k]) + "|");
             } // for (int k = 0; k < layerSizes[A_INDEX]; k++)
 
-            for (int i = 0; i < layerSizes[F_INDEX]; i++)
+            for (int i = 0; i < layerSizes[f_index]; i++)
             {
                System.out.print(String.format("%,.4f", outputs[testCase][i]) + " |");
             }

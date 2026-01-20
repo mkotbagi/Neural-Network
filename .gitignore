@@ -3,3 +3,15 @@
 *.txt
 *.class
 gson-2.13.1.jar
+/Photos
+*.bat
+BGR2BMP.java
+Test.java
+RgbQuad.java
+PelArray.java
+DibDump.java
+Crop_Complement.java
+.gitignore
+Bytes2Activations.java
+BMP2OneByte.java
+Activations2Bytes.java
